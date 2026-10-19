@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Speaker Control</title>
+    <style>
+      @font-face {
+        font-family: "Archivo";
+        font-style: italic;
+        font-weight: 900;
+        src: url("assets/fonts/archivo-latin-900-italic.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        font-weight: 700;
+        src: url("assets/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Inter";
+        font-weight: 400;
+        src: url("assets/fonts/inter-latin-400-normal.woff2") format("woff2");
+      }
+      :root {
+        --bg: #1a1a1a;
+        --panel: #222;
+        --fg: #f0f1f4;
+        --accent: #ff9c1a;
+        --muted: #a3a3a8;
+        --line: rgba(255, 156, 26, 0.2);
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: "Inter", system-ui, sans-serif;
+        padding: 20px 16px 48px;
+      }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        display: grid;
+        gap: 20px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      header img {
+        height: 44px;
+      }
+      h1 {
+        font-family: "Archivo", sans-serif;
+        font-style: italic;
+        font-weight: 900;
+        font-size: 30px;
+        text-transform: uppercase;
+        margin-right: auto;
+      }
+      .label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        color: var(--accent);
+        text-transform: uppercase;
+      }
+      .bar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+      .bar label {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      input,
+      textarea {
+        background: var(--bg);
+        color: var(--fg);
+        border: 1px solid #3a3a3a;
+        padding: 8px 10px;
+        font: inherit;
+      }
+      input[type="number"] {
+        width: 70px;
+      }
+      button {
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 12px 18px;
+        border: 0;
+        cursor: pointer;
+        background: var(--accent);
+        color: #1a1a1a;
+      }
+      button.ghost {
+        background: transparent;
+        color: var(--fg);
+        border: 1px solid #555;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      textarea:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      #hide {
+        margin-left: auto;
+        background: #e5484d;
+        color: #fff;
+      }
+      .speakers {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 14px;
+      }
+      .card {
+        display: grid;
+        grid-template-columns: 72px 1fr;
+        gap: 14px;
+        align-items: center;
+        padding: 14px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+      .card.live {
+        border-color: var(--accent);
+        box-shadow: inset 0 0 0 1px var(--accent);
+      }
+      .card img {
+        width: 72px;
+        height: 80px;
+        object-fit: cover;
+        clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+      }
+      .card h2 {
+        font-family: "Archivo", sans-serif;
+        font-style: italic;
+        font-weight: 900;
+        font-size: 20px;
+        text-transform: uppercase;
+      }
+      .card p {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 2px 0 10px;
+      }
+      .card kbd {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        color: var(--muted);
+        margin-left: 8px;
+      }
+      .preview {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        border: 1px solid var(--line);
+      }
+      .preview iframe {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1920px;
+        height: 1080px;
+        border: 0;
+        transform-origin: 0 0;
+      }
+      details {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        padding: 12px 14px;
+      }
+      summary {
+        cursor: pointer;
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 700;
+        font-size: 13px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .custom {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .help {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.6;
+        margin-top: 10px;
+      }
+      .help code {
+        color: var(--fg);
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Who's speaking</h1>
+        <img src="assets/buildweek.png" alt="BuildWeek" />
+        <img src="assets/creatorhive-logo.png" alt="CreatorHive" />
+      </header>
+
+      <div class="bar">
+        <label>Hide after <input id="hold" type="number" min="0" value="10" /> s (0 = stay up)</label>
+        <button id="hide" type="button">Hide banner <kbd>Esc</kbd></button>
+      </div>
+
+      <div class="speakers" id="speakers"></div>
+
+      <div>
+        <div class="label">Preview (what the browser source shows)</div>
+        <div class="preview" id="preview"><iframe src="overlay.html?preview" title="Overlay preview"></iframe></div>
+      </div>
+
+      <details>
+        <summary>Someone else is speaking</summary>
+        <form class="custom" id="custom">
+          <input name="name" placeholder="Name" required />
+          <input name="role" placeholder="Title · Company" />
+          <textarea name="line" rows="2" placeholder="One-liner"></textarea>
+          <button type="submit">Show this speaker</button>
+        </form>
+      </details>
+
+      <details>
+        <summary>OBS setup</summary>
+        <div class="help">
+          <p><b>1. Browser source</b>: add a Browser source, URL <code id="overlay-url"></code>, width 1920, height 1080.</p>
+          <p><b>2. This control page inside OBS</b>: Docks → Custom Browser Docks, URL <code id="control-url"></code>. Buttons here then drive the browser source directly.</p>
+          <p>Or skip the dock: one browser source per speaker with <code>overlay.html?speaker=lucas-wyman&amp;hold=10</code>, tick “Refresh browser when scene becomes active”, and toggle it with a hotkey.</p>
+        </div>
+      </details>
+    </main>
+    <script src="speakers.js"></script>
+    <script>
+      const holdInput = document.getElementById("hold");
+      const list = document.getElementById("speakers");
+      let liveId = null;
+
+      function markLive(id) {
+        liveId = id;
+        for (const card of list.children) card.classList.toggle("live", card.dataset.id === id);
+      }
+      function showSpeaker(id) {
+        window.LowerThirdBus.send({ action: "show", speaker: id, hold: holdInput.value });
+        markLive(id);
+        const hold = Number(holdInput.value);
+        clearTimeout(window.__liveTimer);
+        if (hold > 0) window.__liveTimer = setTimeout(() => markLive(null), hold * 1000);
+      }
+      function hideBanner() {
+        window.LowerThirdBus.send({ action: "hide" });
+        markLive(null);
+      }
+
+      window.SPEAKERS.forEach((s, i) => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.dataset.id = s.id;
+        card.innerHTML = `<img alt="" /><div><h2></h2><p></p><button type="button">Show</button><kbd>${i + 1}</kbd></div>`;
+        card.querySelector("img").src = s.photo;
+        card.querySelector("h2").textContent = s.name;
+        card.querySelector("p").textContent = s.role;
+        card.querySelector("button").setAttribute("aria-label", `Show ${s.name}`);
+        card.querySelector("button").onclick = () => showSpeaker(s.id);
+        list.appendChild(card);
+      });
+
+      document.getElementById("hide").onclick = hideBanner;
+      document.getElementById("custom").onsubmit = (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        window.LowerThirdBus.send({
+          action: "show",
+          hold: holdInput.value,
+          custom: {
+            name: f.get("name"),
+            role: f.get("role"),
+            line: f.get("line"),
+            photo: "assets/creatorhive-logo.png",
+          },
+        });
+        markLive(null);
+      };
+      document.addEventListener("keydown", (e) => {
+        if (e.target.closest("input, textarea")) return;
+        if (e.key === "Escape" || e.key === "h") hideBanner();
+        const n = Number(e.key);
+        if (n >= 1 && n <= window.SPEAKERS.length) showSpeaker(window.SPEAKERS[n - 1].id);
+      });
+
+      // Scale the 1920×1080 preview to fit.
+      const preview = document.getElementById("preview");
+      const fit = () => (preview.firstElementChild.style.transform = `scale(${preview.clientWidth / 1920})`);
+      new ResizeObserver(fit).observe(preview);
+
+      const base = location.href.replace(/[^/]*([?#].*)?$/, "");
+      document.getElementById("overlay-url").textContent = base + "overlay.html";
+      document.getElementById("control-url").textContent = base + "index.html";
+    </script>
+  </body>
+</html>
