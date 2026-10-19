@@ -380,7 +380,7 @@
       if (params.has("preview")) document.body.classList.add("preview");
       if (params.get("speaker")) {
         document.fonts.ready.then(() =>
-          handle({ action: "show", speaker: params.get("speaker"), hold: params.get("hold") || 0, at: -1 }),
+          handle({ action: "show", speaker: params.get("speaker"), hold: params.get("hold") || 0 }),
         );
       }
     </script>

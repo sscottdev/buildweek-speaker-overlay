@@ -119,8 +119,22 @@
         outline: 2px solid var(--accent);
         outline-offset: 2px;
       }
-      #hide {
+      .obs code {
+        flex: 1;
+        min-width: 0;
+        word-break: break-all;
+        font-size: 14px;
+      }
+      .status {
         margin-left: auto;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .status.bad {
+        color: #ff6b6b;
+      }
+      #hide {
         background: #e5484d;
         color: #fff;
       }
@@ -220,8 +234,15 @@
         <img src="assets/creatorhive-logo.png" alt="CreatorHive" />
       </header>
 
+      <div class="bar obs">
+        <span class="label">OBS browser source URL (1920×1080)</span>
+        <code id="overlay-url"></code>
+        <button id="copy" type="button" class="ghost">Copy</button>
+      </div>
+
       <div class="bar">
         <label>Hide after <input id="hold" type="number" min="0" value="10" /> s (0 = stay up)</label>
+        <span id="status" class="status" role="status"></span>
         <button id="hide" type="button">Hide banner <kbd>Esc</kbd></button>
       </div>
 
@@ -229,7 +250,7 @@
 
       <div>
         <div class="label">Preview (what the browser source shows)</div>
-        <div class="preview" id="preview"><iframe src="overlay.html?preview" title="Overlay preview"></iframe></div>
+        <div class="preview" id="preview"><iframe id="preview-frame" title="Overlay preview"></iframe></div>
       </div>
 
       <details>
@@ -245,15 +266,38 @@
       <details>
         <summary>OBS setup</summary>
         <div class="help">
-          <p><b>1. Browser source</b>: add a Browser source, URL <code id="overlay-url"></code>, width 1920, height 1080.</p>
-          <p><b>2. This control page inside OBS</b>: Docks → Custom Browser Docks, URL <code id="control-url"></code>. Buttons here then drive the browser source directly.</p>
-          <p>Or skip the dock: one browser source per speaker with <code>overlay.html?speaker=lucas-wyman&amp;hold=10</code>, tick “Refresh browser when scene becomes active”, and toggle it with a hotkey.</p>
+          <p><b>1.</b> In OBS (on the streaming computer), add a <b>Browser</b> source with the URL above, width 1920, height 1080. If you already added one, replace its URL; the room code in it is what links it to this page.</p>
+          <p><b>2.</b> Keep this page open anywhere (laptop, phone) and click Show. Bookmark it: the room code in this page's address is what OBS listens to.</p>
+          <p>Optional: add this page as an OBS dock (Docks → Custom Browser Docks): <code id="control-url"></code></p>
+          <p>No network? One browser source per speaker with <code>overlay.html?speaker=lucas-wyman&amp;hold=10</code>, tick “Refresh browser when scene becomes active”, and toggle it with a hotkey.</p>
         </div>
       </details>
     </main>
     <script src="speakers.js"></script>
     <script>
+      // Private room id links this control page to its overlay through the relay.
+      const bus = window.LowerThirdBus;
+      if (!bus.room) {
+        let saved = "";
+        try {
+          saved = localStorage.getItem("bw-room") || "";
+        } catch {}
+        bus.room = saved || crypto.randomUUID().replace(/-/g, "").slice(0, 20);
+        history.replaceState(null, "", `?room=${bus.room}`);
+      }
+      try {
+        localStorage.setItem("bw-room", bus.room);
+      } catch {}
+
       const holdInput = document.getElementById("hold");
+      const status = document.getElementById("status");
+      async function send(msg, label) {
+        status.className = "status";
+        status.textContent = "Sending…";
+        const ok = await bus.send(msg);
+        status.textContent = ok ? `${label} ✓` : "Couldn't reach the relay. Check the internet connection.";
+        status.className = ok ? "status" : "status bad";
+      }
       const list = document.getElementById("speakers");
       let liveId = null;
 
@@ -262,14 +306,14 @@
         for (const card of list.children) card.classList.toggle("live", card.dataset.id === id);
       }
       function showSpeaker(id) {
-        window.LowerThirdBus.send({ action: "show", speaker: id, hold: holdInput.value });
+        send({ action: "show", speaker: id, hold: holdInput.value }, `Showing ${window.SPEAKERS.find((s) => s.id === id).name}`);
         markLive(id);
         const hold = Number(holdInput.value);
         clearTimeout(window.__liveTimer);
         if (hold > 0) window.__liveTimer = setTimeout(() => markLive(null), hold * 1000);
       }
       function hideBanner() {
-        window.LowerThirdBus.send({ action: "hide" });
+        send({ action: "hide" }, "Hidden");
         markLive(null);
       }
 
@@ -290,7 +334,7 @@
       document.getElementById("custom").onsubmit = (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
-        window.LowerThirdBus.send({
+        send({
           action: "show",
           hold: holdInput.value,
           custom: {
@@ -299,7 +343,7 @@
             line: f.get("line"),
             photo: "assets/creatorhive-logo.png",
           },
-        });
+        }, `Showing ${f.get("name")}`);
         markLive(null);
       };
       document.addEventListener("keydown", (e) => {
@@ -315,8 +359,16 @@
       new ResizeObserver(fit).observe(preview);
 
       const base = location.href.replace(/[^/]*([?#].*)?$/, "");
-      document.getElementById("overlay-url").textContent = base + "overlay.html";
-      document.getElementById("control-url").textContent = base + "index.html";
+      const overlayUrl = `${base}overlay.html?room=${bus.room}`;
+      document.getElementById("overlay-url").textContent = overlayUrl;
+      document.getElementById("control-url").textContent = `${base}?room=${bus.room}`;
+      document.getElementById("preview-frame").src = `overlay.html?preview&room=${bus.room}`;
+      document.getElementById("copy").onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(overlayUrl);
+          document.getElementById("copy").textContent = "Copied";
+        } catch {}
+      };
     </script>
   </body>
 </html>

@@ -23,23 +23,37 @@ window.SPEAKERS = [
   },
 ];
 
-// Control page → overlay messages. BroadcastChannel reaches other tabs and OBS docks/sources on
-// the same origin; the localStorage write is a fallback for engines where the channel doesn't cross.
+// Control page → overlay messages, three ways so it works wherever each page runs:
+// - ntfy.sh relay keyed by a private room id (?room=…): control in any browser, overlay in OBS on any machine;
+// - BroadcastChannel / localStorage: same browser or same OBS (custom dock + browser source).
 window.LowerThirdBus = {
-  send(msg) {
-    const payload = { ...msg, at: Date.now() };
+  room: new URLSearchParams(location.search).get("room") || "",
+  topic() {
+    return this.room ? `https://ntfy.sh/bw-lower-third-${this.room}` : "";
+  },
+  async send(msg) {
+    const payload = { ...msg, id: crypto.randomUUID(), at: Date.now() };
     try {
       new BroadcastChannel("bw-lower-third").postMessage(payload);
     } catch {}
     try {
       localStorage.setItem("bw-lower-third", JSON.stringify(payload));
     } catch {}
+    if (!this.topic()) return true;
+    try {
+      const res = await fetch(this.topic(), { method: "POST", body: JSON.stringify(payload) });
+      return res.ok;
+    } catch {
+      return false;
+    }
   },
   listen(handler) {
-    let last = 0;
+    const seen = new Set();
     const once = (msg) => {
-      if (!msg || msg.at === last) return;
-      last = msg.at;
+      if (!msg || !msg.id || seen.has(msg.id)) return;
+      seen.add(msg.id);
+      // Ignore stale relay messages (e.g. replayed after a reconnect).
+      if (Date.now() - msg.at > 120000) return;
       handler(msg);
     };
     try {
@@ -51,5 +65,13 @@ window.LowerThirdBus = {
         once(JSON.parse(e.newValue));
       } catch {}
     });
+    if (this.topic()) {
+      // EventSource reconnects on its own if the connection drops.
+      new EventSource(`${this.topic()}/sse`).onmessage = (e) => {
+        try {
+          once(JSON.parse(JSON.parse(e.data).message));
+        } catch {}
+      };
+    }
   },
 };
