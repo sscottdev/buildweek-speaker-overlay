@@ -234,10 +234,19 @@
         <img src="assets/creatorhive-logo.png" alt="CreatorHive" />
       </header>
 
+      <form class="bar" id="obs-form">
+        <span class="label">OBS WebSocket</span>
+        <input id="obs-address" value="localhost:4455" aria-label="OBS WebSocket address" />
+        <input id="obs-password" type="password" placeholder="Password" aria-label="OBS WebSocket password" />
+        <button type="submit" class="ghost">Connect</button>
+        <span id="obs-link" class="status bad">Not connected (Tools → WebSocket Server Settings in OBS)</span>
+      </form>
+
       <div class="bar obs">
-        <span class="label">OBS browser source URL (1920×1080)</span>
+        <span class="label">OBS browser source URL</span>
         <code id="overlay-url"></code>
         <button id="copy" type="button" class="ghost">Copy</button>
+        <span id="obs-status" class="status bad">OBS overlay not connected yet</span>
       </div>
 
       <div class="bar">
@@ -273,7 +282,7 @@
         </div>
       </details>
     </main>
-    <script src="speakers.js"></script>
+    <script src="speakers.js?v=5"></script>
     <script>
       // Private room id links this control page to its overlay through the relay.
       const bus = window.LowerThirdBus;
@@ -289,14 +298,40 @@
         localStorage.setItem("bw-room", bus.room);
       } catch {}
 
+      // Direct link to OBS (same machine or LAN): no internet needed.
+      const obsLink = document.getElementById("obs-link");
+      bus.obs = new window.ObsLink((ok, text) => {
+        obsLink.textContent = text;
+        obsLink.className = ok ? "status" : "status bad";
+      });
+      const obsAddress = document.getElementById("obs-address");
+      const obsPassword = document.getElementById("obs-password");
+      try {
+        const saved = JSON.parse(localStorage.getItem("bw-obs") || "null");
+        if (saved) {
+          obsAddress.value = saved.address;
+          obsPassword.value = saved.password;
+          bus.obs.connect(saved.address, saved.password);
+        }
+      } catch {}
+      document.getElementById("obs-form").onsubmit = async (e) => {
+        e.preventDefault();
+        obsLink.textContent = "Connecting…";
+        if (await bus.obs.connect(obsAddress.value.trim(), obsPassword.value)) {
+          try {
+            localStorage.setItem("bw-obs", JSON.stringify({ address: obsAddress.value.trim(), password: obsPassword.value }));
+          } catch {}
+        }
+      };
+
       const holdInput = document.getElementById("hold");
       const status = document.getElementById("status");
       async function send(msg, label) {
         status.className = "status";
         status.textContent = "Sending…";
-        const ok = await bus.send(msg);
-        status.textContent = ok ? `${label} ✓` : "Couldn't reach the relay. Check the internet connection.";
-        status.className = ok ? "status" : "status bad";
+        const result = await bus.send(msg);
+        status.textContent = `${label}: ${result}`;
+        status.className = result.includes("✗") ? "status bad" : "status";
       }
       const list = document.getElementById("speakers");
       let liveId = null;
@@ -363,6 +398,23 @@
       document.getElementById("overlay-url").textContent = overlayUrl;
       document.getElementById("control-url").textContent = `${base}?room=${bus.room}`;
       document.getElementById("preview-frame").src = `overlay.html?preview&room=${bus.room}`;
+      // The overlay says hello every 20s; show whether OBS has it loaded.
+      const obsStatus = document.getElementById("obs-status");
+      let lastHello = 0;
+      let helloSize = "";
+      bus.listen((msg) => {
+        if (msg.action !== "hello") return;
+        lastHello = Date.now();
+        helloSize = msg.size || "";
+        tick();
+      });
+      const tick = () => {
+        const fresh = Date.now() - lastHello < 45000;
+        obsStatus.textContent = fresh ? `OBS overlay connected ✓ ${helloSize}` : "OBS overlay not connected. Check the browser source URL.";
+        obsStatus.className = fresh ? "status" : "status bad";
+      };
+      setInterval(tick, 5000);
+
       document.getElementById("copy").onclick = async () => {
         try {
           await navigator.clipboard.writeText(overlayUrl);
